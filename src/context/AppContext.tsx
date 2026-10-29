@@ -7,6 +7,10 @@ interface AppContextType {
   currentView: 'landing' | 'dashboard' | 'patients' | 'schedule' | 'consultation' | 'conflicts' | 'security';
   setCurrentView: (view: 'landing' | 'dashboard' | 'patients' | 'schedule' | 'consultation' | 'conflicts' | 'security') => void;
   
+  // Theme state: 'light' | 'dark'
+  isDarkMode: boolean;
+  toggleDarkMode: () => void;
+
   // Doctor Auth & Multi-Org
   currentDoctor: Doctor;
   switchDoctor: (doctorId: string) => void;
@@ -16,6 +20,7 @@ interface AppContextType {
   
   // Data
   patients: Patient[];
+  doctorPatients: Patient[];
   visits: ClinicalVisit[];
   auditLogs: AuditLog[];
   conflictAlerts: ConflictAlert[];
@@ -50,10 +55,9 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEY_PREFIX = 'docpulse_practo_v1_';
+const STORAGE_KEY_PREFIX = 'docpulse_v2_';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Check URL hash for initial view (e.g. #app or #landing)
   const getInitialView = (): 'landing' | 'dashboard' => {
     const hash = window.location.hash.replace('#', '');
     if (hash === 'app' || hash === 'dashboard') return 'dashboard';
@@ -61,6 +65,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'patients' | 'schedule' | 'consultation' | 'conflicts' | 'security'>(getInitialView());
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem(`${STORAGE_KEY_PREFIX}dark_mode`) === 'true';
+  });
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      const next = !prev;
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}dark_mode`, String(next));
+      return next;
+    });
+  };
+
   const [currentDoctor, setCurrentDoctor] = useState<Doctor>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}doctor`);
     if (saved) {
@@ -95,11 +111,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return MOCK_AUDIT_LOGS;
   });
 
-  const [conflictAlerts] = useState<ConflictAlert[]>(MOCK_CONFLICT_ALERTS);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(() => {
+    return MOCK_PATIENTS.find(p => p.primaryDoctorId === currentDoctor.id) || MOCK_PATIENTS[0];
+  });
 
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(MOCK_PATIENTS[0]);
   const [activeConsultation, setActiveConsultation] = useState<ClinicalVisit | null>(() => {
-    return MOCK_CLINICAL_VISITS.find(v => v.status === 'In-Consultation') || null;
+    return MOCK_CLINICAL_VISITS.find(v => v.doctorId === currentDoctor.id && v.status === 'In-Consultation') || null;
   });
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,10 +169,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       patientId: patientId,
       patientName: patientName,
       organizationId: orgId || selectedOrgId || 'org-unified',
-      organizationName: orgName || (selectedOrgId === 'all' ? 'Unified Care Network' : currentDoctor.organizations.find(o => o.id === selectedOrgId)?.name || 'General Clinic'),
+      organizationName: orgName || (selectedOrgId === 'all' ? 'Unified Practice' : currentDoctor.organizations.find(o => o.id === selectedOrgId)?.name || 'General Clinic'),
       action,
       ipAddress: '192.168.1.104',
-      device: window.innerWidth < 768 ? 'Mobile Clinician Client (PWA)' : 'Doctor Chamber Workstation (Desktop)',
+      device: window.innerWidth < 768 ? 'Mobile Clinician Web App' : 'Doctor Consultation Station',
       details,
     };
     setAuditLogs(prev => [newLog, ...prev]);
@@ -166,6 +183,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (doc) {
       setCurrentDoctor(doc);
       setSelectedOrgId('all');
+
+      // Update selected patient to this doctor's primary patient
+      const docPatient = patients.find(p => p.primaryDoctorId === doc.id) || patients[0];
+      setSelectedPatient(docPatient || null);
+
+      // Find in-consultation visit for this doctor
+      const activeVis = visits.find(v => v.doctorId === doc.id && v.status === 'In-Consultation')
+        || visits.find(v => v.doctorId === doc.id && v.date === '2026-10-29' && v.status === 'Waiting')
+        || null;
+      setActiveConsultation(activeVis);
+
       logAuditEvent('CONSENT_OVERRIDE', `Switched active doctor session to ${doc.name} (${doc.specialty})`);
     }
   };
@@ -220,7 +248,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     logAuditEvent(
       'COMPLETE_VISIT',
-      `Completed consultation and locked digital clinical SOAP summary for token #${currentV?.tokenNumber}`,
+      `Completed consultation and signed clinical note for token #${currentV?.tokenNumber}`,
       currentV?.patientId,
       pat?.name,
       currentV?.organizationId,
@@ -302,7 +330,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addNewVisit = (newVisitData: Omit<ClinicalVisit, 'id' | 'tokenNumber'>) => {
-    const todayTokens = visits.filter(v => v.date === newVisitData.date).length;
+    const todayTokens = visits.filter(v => v.date === newVisitData.date && v.doctorId === currentDoctor.id).length;
     const newVisit: ClinicalVisit = {
       ...newVisitData,
       id: `vis-${Date.now()}`,
@@ -330,13 +358,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newPat: Patient = {
       ...patientData,
       id: `pat-${Date.now()}`,
+      primaryDoctorId: currentDoctor.id,
     };
     setPatients(prev => [newPat, ...prev]);
     setSelectedPatient(newPat);
 
     logAuditEvent(
       'CONSENT_OVERRIDE',
-      `Enrolled new patient ${newPat.name} (MRN: ${newPat.mrn}) into Practice Directory with ABHA consent.`,
+      `Enrolled new patient ${newPat.name} (MRN: ${newPat.mrn}) into Practice Directory.`,
       newPat.id,
       newPat.name
     );
@@ -365,34 +394,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setVisits(MOCK_CLINICAL_VISITS);
     setAuditLogs(MOCK_AUDIT_LOGS);
     setSelectedPatient(MOCK_PATIENTS[0]);
-    setActiveConsultation(MOCK_CLINICAL_VISITS.find(v => v.status === 'In-Consultation') || null);
+    setActiveConsultation(MOCK_CLINICAL_VISITS.find(v => v.doctorId === 'doc-1' && v.status === 'In-Consultation') || null);
     setCurrentView('dashboard');
   };
 
-  // Filtered views based on doctor and selected organization
+  // Filtered visits for current doctor and selected org
   const filteredVisits = visits.filter(v => {
-    // Must belong to current doctor
     if (v.doctorId !== currentDoctor.id) return false;
-    // Filter by organization if not 'all'
     if (selectedOrgId !== 'all' && v.organizationId !== selectedOrgId) return false;
     return true;
   });
 
-  // Today's visits
-  const todayDateStr = '2026-10-29'; // Current demo day
-  const todayQueue = filteredVisits.filter(v => v.date === todayDateStr).sort((a, b) => a.tokenNumber - b.tokenNumber);
+  // Today's appointments (Oct 29, 2026)
+  const todayDateStr = '2026-10-29';
+  const todayQueue = filteredVisits
+    .filter(v => v.date === todayDateStr)
+    .sort((a, b) => a.tokenNumber - b.tokenNumber);
+
+  // Filter patients associated with this doctor
+  const doctorPatients = patients.filter(p => {
+    if (p.primaryDoctorId === currentDoctor.id) return true;
+    return visits.some(v => v.patientId === p.id && v.doctorId === currentDoctor.id);
+  });
+
+  // Conflict alerts for current doctor
+  const conflictAlerts = MOCK_CONFLICT_ALERTS.filter(a => a.doctorId === currentDoctor.id);
 
   return (
     <AppContext.Provider
       value={{
         currentView,
         setCurrentView,
+        isDarkMode,
+        toggleDarkMode,
         currentDoctor,
         switchDoctor,
         selectedOrgId,
         setSelectedOrgId,
         currentOrganization,
         patients,
+        doctorPatients,
         visits,
         auditLogs,
         conflictAlerts,

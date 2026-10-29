@@ -7,7 +7,7 @@ export interface Organization {
   type: OrgType;
   address: string;
   city: string;
-  color: string; // Tailwind color accent
+  color: string;
   badgeColor: string;
   consultancyFee: number;
   roomNumber: string;
@@ -54,7 +54,7 @@ export interface PrescriptionItem {
 export interface LabReportItem {
   id: string;
   testName: string;
-  category: 'Blood' | 'Cardiology' | 'Radiology' | 'Pathology';
+  category: 'Blood' | 'Cardiology' | 'Radiology' | 'Pathology' | 'Orthopedics' | 'Pediatrics';
   date: string;
   organizationName: string;
   status: 'Normal' | 'Abnormal' | 'Critical';
@@ -115,6 +115,7 @@ export interface Patient {
   consentStatus: 'GRANTED_ALL' | 'RESTRICTED_ATTENDING' | 'EMERGENCY_OVERRIDE';
   consentExpiresAt: string;
   registeredDate: string;
+  primaryDoctorId?: string;
   notes?: string;
 }
 
@@ -135,6 +136,7 @@ export interface AuditLog {
 
 export interface ConflictAlert {
   id: string;
+  doctorId: string;
   date: string;
   timeRange: string;
   orgA: { name: string; slot: string };

@@ -6,23 +6,20 @@ import {
   Building2, 
   Navigation, 
   CheckCircle2, 
-  MapPin, 
   ShieldAlert, 
   Users, 
   ArrowRight,
-  TrendingUp,
-  Sparkles,
   Sliders
 } from 'lucide-react';
 
 export const ConflictResolverView: React.FC = () => {
-  const { currentDoctor, conflictAlerts, patients, visits, setSelectedPatient, setCurrentView } = useApp();
-  const [bufferSetting, setBufferSetting] = useState(30); // 30 min commute buffer
+  const { currentDoctor, conflictAlerts, doctorPatients, visits, setSelectedPatient, setCurrentView } = useApp();
+  const [bufferSetting, setBufferSetting] = useState(30);
   const [isBufferSaved, setIsBufferSaved] = useState(false);
 
-  // Find patients seen across multiple facilities
-  const multiFacilityPatients = patients.filter(patient => {
-    const patientVisits = visits.filter(v => v.patientId === patient.id);
+  // Find co-managed patients for this doctor seen across multiple facilities
+  const multiFacilityPatients = doctorPatients.filter(patient => {
+    const patientVisits = visits.filter(v => v.patientId === patient.id && v.doctorId === currentDoctor.id);
     const facilities = new Set(patientVisits.map(v => v.organizationId));
     return facilities.size > 1;
   });
@@ -33,95 +30,94 @@ export const ConflictResolverView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       
       {/* Title */}
       <div>
-        <div className="flex items-center space-x-2 text-xs font-semibold text-amber-400">
+        <div className="flex items-center space-x-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
           <AlertTriangle className="w-4 h-4" />
-          <span>Multi-Organization Mobility & Collision Defense</span>
+          <span>Multi-Clinic Mobility & Buffer Guard</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-          Schedule Conflict & Cross-Org Travel Engine
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-0.5">
+          Transit Conflicts & Cross-Clinic Care
         </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-3xl">
-          Addressing the biggest pain point of modern physicians: balancing commitments across multiple hospitals, polyclinics, and private chambers without double-booking or commuting burnout.
+        <p className="text-xs sm:text-sm text-slate-500 max-w-3xl">
+          Coordinate shifts across hospitals and outpatient clinics without double-booking or tight commute windows.
         </p>
       </div>
 
-      {/* Grid: Active Conflicts Left & Commute Matrix Right */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Active Conflicts & Commute Buffer Simulator (7 cols) */}
+        {/* Left Column (7 cols): Conflicts and Buffer Setting */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Active Alerts List */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2">
-                <ShieldAlert className="w-5 h-5 text-amber-400" />
-                <h2 className="text-base font-bold text-white">Active Transit & Shift Conflicts ({conflictAlerts.length})</h2>
-              </div>
-              <span className="text-xs font-mono text-amber-400">Automatic Telemetry</span>
+          {/* Active Alerts */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                <ShieldAlert className="w-4 h-4 text-amber-600" />
+                <span>Detected Transit Collisions ({conflictAlerts.length})</span>
+              </h2>
+              <span className="text-xs font-mono font-bold text-amber-600">Active Warning</span>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {conflictAlerts.map(alert => (
                 <div 
                   key={alert.id}
-                  className="p-4 rounded-xl bg-slate-950 border border-amber-500/30 space-y-2.5"
+                  className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/80 space-y-2.5"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center space-x-1.5">
-                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-white flex items-center space-x-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
                       <span>{alert.date} • {alert.timeRange}</span>
                     </span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">
                       {alert.severity} PRIORITY
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-300 leading-relaxed">
+                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                     {alert.message}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
-                    <div className="bg-slate-900 p-2 rounded-lg">
-                      <div className="text-slate-400">Departure Facility:</div>
-                      <div className="font-semibold text-slate-200">{alert.orgA.name}</div>
-                      <div className="text-slate-400 text-[10px]">{alert.orgA.slot}</div>
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-amber-200/60 dark:border-amber-900 text-[11px]">
+                    <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700">
+                      <div className="text-slate-400 font-semibold">Departure:</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">{alert.orgA.name}</div>
+                      <div className="text-slate-500 text-[10px]">{alert.orgA.slot}</div>
                     </div>
-                    <div className="bg-slate-900 p-2 rounded-lg">
-                      <div className="text-slate-400">Arrival Facility:</div>
-                      <div className="font-semibold text-slate-200">{alert.orgB.name}</div>
-                      <div className="text-slate-400 text-[10px]">{alert.orgB.slot}</div>
+                    <div className="bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-200/60 dark:border-slate-700">
+                      <div className="text-slate-400 font-semibold">Arrival:</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">{alert.orgB.name}</div>
+                      <div className="text-slate-500 text-[10px]">{alert.orgB.slot}</div>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 text-[11px] text-amber-300 font-mono">
-                    <span>Est. Traffic Transit: {alert.commuteEstimate}</span>
-                    <span className="text-emerald-400 underline cursor-pointer">Auto-adjust buffer</span>
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-amber-800 dark:text-amber-300 font-mono">
+                    <span>Estimated Transit: {alert.commuteEstimate}</span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Commute Buffer Setting Simulator */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center space-x-2 pb-3 border-b border-slate-800">
-              <Sliders className="w-5 h-5 text-emerald-400" />
-              <h2 className="text-base font-bold text-white">Intelligent Transit Buffer Guard</h2>
+          {/* Buffer Simulator */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <Sliders className="w-4 h-4 text-sky-600" />
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Inter-Clinic Transit Buffer Guard</h2>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Configure minimum transition time enforced between different hospital and clinic shifts. The booking engine automatically blocks patients from scheduling within this travel window.
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Set the minimum travel buffer automatically reserved between your different hospital duty and clinic schedules. The booking desk will lock slots during this transit period.
             </p>
 
-            <div className="space-y-3 pt-2">
+            <div className="space-y-2 pt-2">
               <div className="flex justify-between text-xs font-semibold">
-                <span className="text-slate-400">Current Transit Buffer:</span>
-                <span className="text-emerald-400 font-mono text-sm">{bufferSetting} Minutes</span>
+                <span className="text-slate-500">Transit Buffer Guard:</span>
+                <span className="text-sky-600 font-mono text-sm font-bold">{bufferSetting} Minutes</span>
               </div>
 
               <input
@@ -131,30 +127,30 @@ export const ConflictResolverView: React.FC = () => {
                 step="5"
                 value={bufferSetting}
                 onChange={(e) => setBufferSetting(parseInt(e.target.value, 10))}
-                className="w-full accent-emerald-500 cursor-pointer"
+                className="w-full accent-sky-600 cursor-pointer"
               />
 
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>15 min (Same campus)</span>
-                <span>30 min (City center)</span>
+              <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                <span>15 min</span>
+                <span>30 min (Recommended)</span>
                 <span>45 min (Heavy traffic)</span>
-                <span>60 min (Suburban)</span>
+                <span>60 min</span>
               </div>
             </div>
 
-            <div className="pt-3 flex items-center justify-between">
+            <div className="pt-2 flex items-center justify-between">
               {isBufferSaved ? (
-                <span className="text-xs text-emerald-400 font-semibold flex items-center space-x-1">
+                <span className="text-xs text-emerald-600 font-semibold flex items-center space-x-1">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Buffer guard updated & synced across hospital schedulers!</span>
+                  <span>Buffer guard updated and synced to all clinic desks!</span>
                 </span>
               ) : (
-                <span className="text-[11px] text-slate-500">Auto-propagates to all 3 clinic front desks</span>
+                <span className="text-[11px] text-slate-400">Protects booking calendar from overlap</span>
               )}
 
               <button
                 onClick={handleSaveBuffer}
-                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md transition-all"
+                className="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs shadow-sm transition-all"
               >
                 Save Buffer Policy
               </button>
@@ -163,27 +159,27 @@ export const ConflictResolverView: React.FC = () => {
 
         </div>
 
-        {/* Right Column: Multi-Facility Patient Care Tracking (5 cols) */}
+        {/* Right Column (5 cols): Co-Managed Patients */}
         <div className="lg:col-span-5 space-y-6">
           
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-teal-400" />
-                <h2 className="text-base font-bold text-white">Cross-Facility Co-Managed Patients</h2>
-              </div>
-              <span className="text-xs font-mono text-teal-400">
-                {multiFacilityPatients.length} Active Patients
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                <Users className="w-4 h-4 text-sky-600" />
+                <span>Cross-Facility Co-Managed Patients</span>
+              </h2>
+              <span className="text-xs font-mono font-bold text-sky-600">
+                {multiFacilityPatients.length} Active
               </span>
             </div>
 
-            <p className="text-xs text-slate-300">
-              These patients have received care from you across 2 or more separate institutions. Their longitudinal health journey is automatically linked:
+            <p className="text-xs text-slate-600 dark:text-slate-300">
+              Patients you attend across two or more separate medical organizations:
             </p>
 
             <div className="space-y-3">
               {multiFacilityPatients.map(pat => {
-                const patVisits = visits.filter(v => v.patientId === pat.id);
+                const patVisits = visits.filter(v => v.patientId === pat.id && v.doctorId === currentDoctor.id);
                 const uniqueOrgs = Array.from(new Set(patVisits.map(v => v.organizationName)));
 
                 return (
@@ -193,63 +189,40 @@ export const ConflictResolverView: React.FC = () => {
                       setSelectedPatient(pat);
                       setCurrentView('patients');
                     }}
-                    className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-teal-500/40 cursor-pointer transition-all group"
+                    className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 hover:border-sky-500/80 cursor-pointer transition-all group"
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="text-sm font-bold text-white group-hover:text-teal-400 transition-colors">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-sky-600 transition-colors">
                           {pat.name}
                         </h4>
-                        <p className="text-[11px] text-slate-400">
+                        <p className="text-[11px] text-slate-500">
                           {pat.gender}, {pat.age}y • MRN: {pat.mrn}
                         </p>
                       </div>
 
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 font-semibold">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300">
                         {uniqueOrgs.length} Facilities
                       </span>
                     </div>
 
                     <div className="mt-2.5 space-y-1">
-                      <div className="text-[10px] text-slate-400 font-semibold uppercase">Care Journey:</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Care Facilities:</div>
                       {uniqueOrgs.map((org, i) => (
-                        <div key={i} className="text-xs text-slate-300 flex items-center space-x-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <div key={i} className="text-xs text-slate-700 dark:text-slate-300 flex items-center space-x-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-600" />
                           <span>{org}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-teal-400 font-medium">
-                      <span>Inspect Unified Medical Records</span>
+                    <div className="mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-700 flex items-center justify-between text-[11px] text-sky-600 font-semibold">
+                      <span>View Unified Medical Records</span>
                       <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Commute Distance Table */}
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl text-xs space-y-3">
-            <div className="font-bold text-white flex items-center space-x-1.5">
-              <Navigation className="w-4 h-4 text-emerald-400" />
-              <span>Inter-Facility Commute Matrix</span>
-            </div>
-
-            <div className="space-y-2 text-slate-300">
-              <div className="p-2 rounded-lg bg-slate-950 flex justify-between">
-                <span>Apollo Grand ➔ St. Jude Vascular</span>
-                <span className="font-mono text-emerald-400 font-bold">25 Mins (11.2 km)</span>
-              </div>
-              <div className="p-2 rounded-lg bg-slate-950 flex justify-between">
-                <span>St. Jude Vascular ➔ Chen Private Clinic</span>
-                <span className="font-mono text-emerald-400 font-bold">18 Mins (7.4 km)</span>
-              </div>
-              <div className="p-2 rounded-lg bg-slate-950 flex justify-between">
-                <span>Apollo Grand ➔ Chen Private Clinic</span>
-                <span className="font-mono text-amber-400 font-bold">38 Mins (18.6 km)</span>
-              </div>
             </div>
           </div>
 
